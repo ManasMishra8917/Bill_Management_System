@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
+import { ThemeProvider, createTheme } from "@mui/material/styles";
 import LoginForm from './components/Login'
 import CustomerTable from './components/CustomerTable'
 import BillGenerator from './components/BillGenerator'
@@ -8,6 +9,7 @@ import Sidenav from './components/SideNav';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const theme = createTheme();
 
   const handleLogin = () => setIsLoggedIn(true);
 
@@ -16,6 +18,7 @@ function App() {
   }
 
   return (
+    <ThemeProvider theme={theme}>
     <Router>
       <Box sx={{ display: 'flex' }}>
         <Sidenav />
@@ -28,6 +31,7 @@ function App() {
         </Box>
       </Box>
     </Router>
+    </ThemeProvider>
   );
 };
 

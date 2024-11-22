@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import { addCustomer } from "../slices/customersSlice";
 import { Box, TextField, Button, Typography, Modal, Divider } from "@mui/material";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 
 const BillGenerator = () => {
   const [customerName, setCustomerName] = useState("");
@@ -11,7 +13,9 @@ const BillGenerator = () => {
   const [note, setNote] = useState("");
   const [date, setDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState([
+    { itemName: "", description: "", quantity: "", price: "", total: "" }, // Default product row
+  ]);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const dispatch = useDispatch();
 
@@ -41,10 +45,15 @@ const BillGenerator = () => {
   const calculateTax = (subtotal) => (subtotal * 19) / 100;
 
   const handleSubmit = () => {
+    if (!customerName || !customerMobile || !year || !date || !expiryDate) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+
     const subtotal = calculateSubtotal();
     const tax = calculateTax(subtotal);
     const total = subtotal + tax;
-  
+
     const newCustomer = {
       name: customerName,
       contact: customerMobile,
@@ -58,58 +67,115 @@ const BillGenerator = () => {
       tax,
       total,
     };
-  
+
     dispatch(addCustomer(newCustomer));
     setIsSuccessModalOpen(true);
   };
-  
-
   const downloadInvoice = () => {
-    const invoiceData = {
-      customerName,
-      customerMobile,
-      year,
-      status,
-      note,
-      date,
-      expiryDate,
-      products,
-    };
-    const blob = new Blob([JSON.stringify(invoiceData, null, 2)], {
-      type: "application/json",
+    const doc = new jsPDF();
+  
+    // Title
+    doc.setFontSize(18);
+    doc.text("Invoice", 105, 10, null, null, "center");
+  
+    // Customer Details
+    doc.setFontSize(12);
+    doc.text(`Customer Details:`, 10, 20);
+    doc.text(`Name: ${customerName}`, 10, 30);
+    doc.text(`Mobile: ${customerMobile}`, 10, 40);
+    doc.text(`Year: ${year}`, 10, 50);
+    doc.text(`Status: ${status}`, 10, 60);
+  
+    // Note and Dates
+    doc.text(`Note: ${note}`, 10, 70);
+    doc.text(`Date: ${date}`, 10, 80);
+    doc.text(`Expiry Date: ${expiryDate}`, 10, 90);
+  
+    // Add Table for Products
+    const productRows = products.map((product) => [
+      product.itemName,
+      product.description,
+      product.quantity,
+      product.price,
+      product.total,
+    ]);
+  
+    doc.autoTable({
+      startY: 100,
+      head: [["Item Name", "Description", "Quantity", "Price", "Total"]],
+      body: productRows,
     });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `invoice_${customerName}_${date}.json`;
-    link.click();
+  
+    // Add Total Section
+    const subtotal = calculateSubtotal();
+    const tax = calculateTax(subtotal);
+    const total = subtotal + tax;
+  
+    const finalY = doc.previousAutoTable.finalY + 10; // Position below the table
+    doc.text(`Subtotal: ${subtotal.toFixed(2)}`, 10, finalY);
+    doc.text(`Tax (19%): ${tax.toFixed(2)}`, 10, finalY + 10);
+    doc.text(`Total: ${total.toFixed(2)}`, 10, finalY + 20);
+  
+    // Save PDF
+    doc.save(`invoice_${customerName}_${date}.pdf`);
   };
-
+  
   return (
-    <Box sx={{ maxWidth: 800, mx: "auto", p: 3, boxShadow: 2, mt: 4 }}>
-      <Typography variant="h5" mb={2}>
+    <Box
+      sx={{
+        maxWidth: 800,
+        mx: "auto",
+        p: 3,
+        boxShadow: 2,
+        mt: 4,
+        backgroundColor: "white",
+        borderRadius: 2,
+      }}
+    >
+      <Typography variant="h5" mb={2} textAlign="center">
         Bill Generator
       </Typography>
-
-      {/* Row 1: Customer Details */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+  
+      {/* Customer Details */}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          gap: 2,
+          mb: 2,
+        }}
+      >
         <TextField
           fullWidth
-          label="Customer Name"
+          label="Customer Name *"
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
+          required
         />
         <TextField
           fullWidth
-          label="Mobile Number"
+          label="Mobile Number *"
           value={customerMobile}
           onChange={(e) => setCustomerMobile(e.target.value)}
+          required
         />
+      </Box>
+  
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          gap: 2,
+          mb: 2,
+        }}
+      >
         <TextField
           fullWidth
-          label="Year"
+          label="Year *"
+          type="number"
           value={year}
           onChange={(e) => setYear(e.target.value)}
+          required
         />
         <TextField
           fullWidth
@@ -118,9 +184,16 @@ const BillGenerator = () => {
           onChange={(e) => setStatus(e.target.value)}
         />
       </Box>
-
-      {/* Row 2: Note and Dates */}
-      <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+  
+      {/* Note and Dates */}
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          gap: 2,
+          mb: 2,
+        }}
+      >
         <TextField
           fullWidth
           label="Note"
@@ -129,62 +202,64 @@ const BillGenerator = () => {
         />
         <TextField
           fullWidth
-          label="Date"
+          label="Date *"
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
+          required
           InputLabelProps={{ shrink: true }}
         />
         <TextField
           fullWidth
-          label="Expiry Date"
+          label="Expiry Date *"
           type="date"
           value={expiryDate}
           onChange={(e) => setExpiryDate(e.target.value)}
+          required
           InputLabelProps={{ shrink: true }}
         />
       </Box>
-
+  
       <Divider sx={{ my: 2 }} />
-
-      {/* Row 3: Products */}
+  
+      {/* Products Section */}
       <Typography variant="h6" mt={2}>
         Products
       </Typography>
       {products.map((product, index) => (
-        <Box key={index} sx={{ display: "flex", gap: 2, mb: 2 }}>
+        <Box
+          key={index}
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            gap: 2,
+            mb: 2,
+          }}
+        >
           <TextField
             label="Item Name"
             value={product.itemName}
-            onChange={(e) =>
-              handleProductChange(index, "itemName", e.target.value)
-            }
+            onChange={(e) => handleProductChange(index, "itemName", e.target.value)}
             fullWidth
           />
           <TextField
             label="Description"
             value={product.description}
-            onChange={(e) =>
-              handleProductChange(index, "description", e.target.value)
-            }
+            onChange={(e) => handleProductChange(index, "description", e.target.value)}
             fullWidth
           />
           <TextField
             label="Quantity"
             type="number"
             value={product.quantity}
-            onChange={(e) =>
-              handleProductChange(index, "quantity", e.target.value)
-            }
+            onChange={(e) => handleProductChange(index, "quantity", e.target.value)}
             fullWidth
           />
           <TextField
             label="Price"
             type="number"
             value={product.price}
-            onChange={(e) =>
-              handleProductChange(index, "price", e.target.value)
-            }
+            onChange={(e) => handleProductChange(index, "price", e.target.value)}
             fullWidth
           />
           <TextField
@@ -198,12 +273,19 @@ const BillGenerator = () => {
       <Button variant="outlined" onClick={addProductField} sx={{ mb: 2 }}>
         Add Product
       </Button>
-
+  
       <Divider sx={{ my: 2 }} />
-
+  
       {/* Bottom Row */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
-        <Box>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
+          justifyContent: "space-between",
+          mt: 2,
+        }}
+      >
+        <Box sx={{ mb: { xs: 2, sm: 0 } }}>
           <Button variant="contained" onClick={handleSubmit}>
             Generate Bill
           </Button>
@@ -211,25 +293,26 @@ const BillGenerator = () => {
             variant="contained"
             color="secondary"
             onClick={downloadInvoice}
-            sx={{ ml: 2 }}
+            sx={{ ml: { sm: 2 }, mt: { xs: 2, sm: 0 } }}
           >
             Download Invoice
           </Button>
         </Box>
-        <Box sx={{ textAlign: "right" }}>
-          <Typography>Subtotal: ₹{calculateSubtotal().toFixed(2)}</Typography>
-          <Typography>Tax (19%): ₹{calculateTax(calculateSubtotal()).toFixed(2)}</Typography>
+        <Box sx={{ textAlign: { xs: "left", sm: "right" }, mt: 1 }}>
+          <Typography sx={{ mb: 1 }}>
+            Subtotal: ₹{calculateSubtotal().toFixed(2)}
+          </Typography>
+          <Typography sx={{ mb: 1 }}>
+            Tax (19%): ₹{calculateTax(calculateSubtotal()).toFixed(2)}
+          </Typography>
           <Typography variant="h6">
             Total: ₹{(calculateSubtotal() + calculateTax(calculateSubtotal())).toFixed(2)}
           </Typography>
         </Box>
       </Box>
-
+  
       {/* Success Modal */}
-      <Modal
-        open={isSuccessModalOpen}
-        onClose={() => setIsSuccessModalOpen(false)}
-      >
+      <Modal open={isSuccessModalOpen} onClose={() => setIsSuccessModalOpen(false)}>
         <Box
           sx={{
             position: "absolute",
@@ -246,16 +329,13 @@ const BillGenerator = () => {
           <Typography variant="h6" mb={2}>
             Bill Generated Successfully!
           </Typography>
-          <Button
-            variant="contained"
-            onClick={() => setIsSuccessModalOpen(false)}
-          >
+          <Button variant="contained" onClick={() => setIsSuccessModalOpen(false)}>
             Close
           </Button>
         </Box>
       </Modal>
     </Box>
   );
-};
+}  
 
 export default BillGenerator;
