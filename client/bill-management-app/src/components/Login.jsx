@@ -8,8 +8,8 @@ const LoginForm = ({ onLogin }) => {
 
   const validate = () => {
     let tempErrors = {};
-    tempErrors.email = email.includes('@') ? '' : 'Invalid email';
-    tempErrors.password = password.length >= 6 ? '' : 'Password too short';
+    tempErrors.email = email.includes('@gmail.com') ? '' : 'Invalid email';
+    tempErrors.password = password.length >= 6  ? '' : 'Password too short';
     setErrors(tempErrors);
     return Object.values(tempErrors).every((x) => x === '');
   };
